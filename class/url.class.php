@@ -1,10 +1,10 @@
 <?php
 /*
-* php class for imitation brauser.
-* @version: 1.0-alpha,
+* php class for post or get query.
+* @version: 1.1,
 * @author: Bogdan Karpov,
-* @email: php_master@mail.ua,
-* @date: 29.11.2016 14:47
+* @email: php_pro@ukr.net,
+* @date: 24.11.2017 14:47
 */
 	class url{
 		private $url;
@@ -15,9 +15,10 @@
 		private $headers = '';
 		private $cookies = '';
 		public $err = '';
+		public $agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36';
 		public function __construct($url, $proxy = array() ){
 			if (!function_exists('curl_init')){
-				die('Недоступний модуль cUrl!');
+				throw new Exception('Недоступний модуль cUrl!',2);
 			}
 			$this->url = $url;
 			$this->proxy = $proxy;
@@ -26,21 +27,20 @@
 		}
 		private function is_ssl(){
 			$this->url = trim($this->url);
-			if (preg_match('#^https\:\/\/#i',$this->url) !== false){
+			if ((strpos($this->url, 'https') !== false)){
 				return true;
-			}else{
-				return false;
 			}
+				return false;
+			
 		}
 		private function checkURL(){
 			if (!(preg_match('#^(http|https)\:\/\/[\w\d\.\-\=\&\?\_\/].*#i', $this->url) !== false) )
-				die("Некоректний url для запиту!");
+				throw new Exception("Некоректний url для запиту!",3);
 		}
 		public function curl($par){
 			$c = curl_init();
 			curl_setopt_array($c, $par);
 			$res = curl_exec($c);
-
 			$this->info = curl_getinfo($c);
 			$this->error = curl_error($c);
 			curl_close($c);
@@ -57,15 +57,12 @@
 			$pr = $this->smart_setopt($pr);
 			return $this->curl($pr);
 		}
-		public function post($par = '',$json = false){
+		public function post($par = ''){
 			if (!empty($par)){
-				if ($json){
-					$par = (object) $par;
-					$q = json_encode($par);
-				}else{
-					$q = http_build_query($par);
-				}
-			}
+				if(is_array($par)) $q = http_build_query($par);
+				elseif(is_string($par)) $q = $par;
+				else throw new Exception("Некоректний параметр пост запиту!!",4);
+			}else throw new Exception("Некоректний параметр пост запиту!!",4);
 			$pr = array(
 				CURLOPT_URL => $this->url,
 				CURLOPT_RETURNTRANSFER => true,
@@ -87,10 +84,18 @@
 				}
 			}
 			if ($this->ssl){
-				$pr[CURLOPT_SSL_VERIFYPEER] = true;
-    			$pr[CURLOPT_SSL_VERIFYHOST]= 2;
+				$pr[CURLOPT_SSL_VERIFYPEER] = false;
+    			//$pr[CURLOPT_SSL_VERIFYHOST]= 2;
+
 			}
+			$pr[CURLOPT_USERAGENT] = $this->agent;
+			$pr[CURLOPT_FOLLOWLOCATION] = 1;
+			$pr[CURLOPT_REFERER] = 'google.com';
 			return $pr;
+		}
+		public function set_agent($value='')
+		{
+			$this->agent = $value;
 		}
 		public function set_headers($str){
 			$this->headers = $str;
@@ -106,9 +111,13 @@
 				return false;
 			}
 		}
+		public function get_agent()
+		{
+			return $this->agent;
+		}
 		public function __destruct(){
 			if (!empty($this->error)){
-				die($this->error);
+				throw new Exception($this->error);
 			}
 		}
 	}
